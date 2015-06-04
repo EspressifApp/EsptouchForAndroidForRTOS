@@ -18,6 +18,7 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Switch;
 import android.widget.TextView;
 
 public class EsptouchDemoActivity extends Activity implements OnClickListener {
@@ -29,6 +30,8 @@ public class EsptouchDemoActivity extends Activity implements OnClickListener {
 	private EditText mEdtApPassword;
 
 	private Button mBtnConfirm;
+	
+	private Switch mSwitchIsSsidHidden;
 
 	private EspWifiAdminSimple mWifiAdmin;
 
@@ -41,6 +44,7 @@ public class EsptouchDemoActivity extends Activity implements OnClickListener {
 		mTvApSsid = (TextView) findViewById(R.id.tvApSssidConnected);
 		mEdtApPassword = (EditText) findViewById(R.id.edtApPassword);
 		mBtnConfirm = (Button) findViewById(R.id.btnConfirm);
+		mSwitchIsSsidHidden = (Switch) findViewById(R.id.switchIsSsidHidden);
 		mBtnConfirm.setOnClickListener(this);
 
 	}
@@ -66,76 +70,21 @@ public class EsptouchDemoActivity extends Activity implements OnClickListener {
 		if (v == mBtnConfirm) {
 			String apSsid = mTvApSsid.getText().toString();
 			String apPassword = mEdtApPassword.getText().toString();
+			String apBssid = mWifiAdmin.getWifiConnectedBssid();
+			Boolean isSsidHidden = mSwitchIsSsidHidden.isChecked();
+			String isSsidHiddenStr = "NO";
+			if (isSsidHidden) 
+			{
+				isSsidHiddenStr = "YES";
+			}
 			if (__IEsptouchTask.DEBUG) {
 				Log.d(TAG, "mBtnConfirm is clicked, mEdtApSsid = " + apSsid
 						+ ", " + " mEdtApPassword = " + apPassword);
 			}
-			new EsptouchAsyncTask2().execute(apSsid, apPassword);
+			new EsptouchAsyncTask2().execute(apSsid, apBssid, apPassword, isSsidHiddenStr);
 		}
 	}
 
-	
-	private class EsptouchAsyncTask extends AsyncTask<String, Void, Boolean> {
-
-		private ProgressDialog mProgressDialog;
-
-		private IEsptouchTask mEsptouchTask;
-
-		@Override
-		protected void onPreExecute() {
-			mProgressDialog = new ProgressDialog(EsptouchDemoActivity.this);
-			mProgressDialog
-					.setMessage("Esptouch is configuring, please wait for a moment...");
-			mProgressDialog.setCanceledOnTouchOutside(false);
-			mProgressDialog.setOnCancelListener(new OnCancelListener() {
-				@Override
-				public void onCancel(DialogInterface dialog) {
-					if (__IEsptouchTask.DEBUG) {
-						Log.i(TAG, "progress dialog is canceled");
-					}
-					if (mEsptouchTask != null) {
-						mEsptouchTask.interrupt();
-					}
-				}
-			});
-			mProgressDialog.setButton(DialogInterface.BUTTON_POSITIVE,
-					"Waiting...", new DialogInterface.OnClickListener() {
-						@Override
-						public void onClick(DialogInterface dialog, int which) {
-						}
-					});
-			mProgressDialog.show();
-			mProgressDialog.getButton(DialogInterface.BUTTON_POSITIVE)
-					.setEnabled(false);
-		}
-
-		@Override
-		protected Boolean doInBackground(String... params) {
-			String apSsid = params[0];
-			String apPassword = params[1];
-			mEsptouchTask = new EsptouchTask(apSsid, apPassword,
-					EsptouchDemoActivity.this);
-			boolean result = mEsptouchTask.execute();
-			return result;
-		}
-
-		@Override
-		protected void onPostExecute(Boolean result) {
-			mProgressDialog.getButton(DialogInterface.BUTTON_POSITIVE)
-					.setEnabled(true);
-			mProgressDialog.getButton(DialogInterface.BUTTON_POSITIVE).setText(
-					"Confirm");
-			// it is unnecessary at the moment, add here just to show how to use isCancelled()
-			if (!mEsptouchTask.isCancelled()) {
-				if (result) {
-					mProgressDialog.setMessage("Esptouch success");
-				} else {
-					mProgressDialog.setMessage("Esptouch fail");
-				}
-			}
-		}
-	}
-	
 	private class EsptouchAsyncTask2 extends AsyncTask<String, Void, IEsptouchResult> {
 
 		private ProgressDialog mProgressDialog;
@@ -173,9 +122,15 @@ public class EsptouchDemoActivity extends Activity implements OnClickListener {
 		@Override
 		protected IEsptouchResult doInBackground(String... params) {
 			String apSsid = params[0];
-			String apPassword = params[1];
-			mEsptouchTask = new EsptouchTask(apSsid, apPassword,
-					EsptouchDemoActivity.this);
+			String apBssid = params[1];
+			String apPassword = params[2];
+			String isSsidHiddenStr = params[3];
+			boolean isSsidHidden = false;
+			if(isSsidHiddenStr.equals("YES"))
+			{
+				isSsidHidden = true;
+			}
+			mEsptouchTask = new EsptouchTask(apSsid, apBssid, apPassword, isSsidHidden, EsptouchDemoActivity.this);
 			IEsptouchResult result = mEsptouchTask.executeForResult();
 			return result;
 		}
@@ -190,7 +145,8 @@ public class EsptouchDemoActivity extends Activity implements OnClickListener {
 			if (!result.isCancelled()) {
 				if (result.isSuc()) {
 					mProgressDialog.setMessage("Esptouch success, bssid = "
-							+ result.getBssid());
+							+ result.getBssid() + ",InetAddress = "
+							+ result.getInetAddress().getHostAddress());
 				} else {
 					mProgressDialog.setMessage("Esptouch fail");
 				}

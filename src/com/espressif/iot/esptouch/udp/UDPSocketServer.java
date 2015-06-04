@@ -21,11 +21,13 @@ public class UDPSocketServer {
 	private volatile boolean mIsClosed;
 
 	private synchronized void acquireLock() {
-		mLock.acquire();
+		if (mLock != null && !mLock.isHeld()) {
+			mLock.acquire();
+		}
 	}
 
 	private synchronized void releaseLock() {
-		if (mLock != null) {
+		if (mLock != null && mLock.isHeld()) {
 			try {
 				mLock.release();
 			} catch (Throwable th) {
@@ -75,7 +77,6 @@ public class UDPSocketServer {
 			this.mServerSocket.setSoTimeout(timeout);
 			return true;
 		} catch (SocketException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return false;
@@ -94,7 +95,6 @@ public class UDPSocketServer {
 			Log.d(TAG, "receive: " + (0 + mReceivePacket.getData()[0]));
 			return mReceivePacket.getData()[0];
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return Byte.MIN_VALUE;
